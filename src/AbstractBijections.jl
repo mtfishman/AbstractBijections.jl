@@ -36,31 +36,50 @@ module AbstractBijections
 
   show(io::IO, f::AbstractBijection) = show(io, MIME"text/plain"(), f)
 
-  struct Bijection{D,I} <: AbstractBijection{D,I}
-    f::Dictionary{D,I}
-    finv::Dictionary{I,D}
+  struct Bijection{D,I,F,FINV} <: AbstractBijection{D,I}
+    f::F # D -> I
+    finv::FINV # I -> D
+    function Bijection(f::F, finv::FINV) where {F,FINV}
+      D = keytype(f)
+      I = eltype(f)
+      @assert keytype(finv) == I
+      @assert eltype(finv) == D
+      return new{D,I,F,FINV}(f, finv)
+    end
   end
 
   copy(f::Bijection) = Bijection(copy(f.f), copy(f.finv))
 
-  function Bijection(domain, image)
-    f = Dictionary(domain, image)
-    finv = Dictionary(image, domain)
+  function bijection(F::Type, FINV::Type, domain, image)
+    f = F(domain, image)
+    finv = FINV(copy(image), copy(domain))
     return Bijection(f, finv)
   end
-  Bijection(image) = Bijection(eachindex(image), image)
 
-  function bijection(domain_image)
-    f = dictionary(domain_image)
-    finv = Dictionary(f.values, f.indices)
-    return Bijection(f, finv)
+  function bijection(F_FINV::Type, domain, image)
+    return bijection(F_FINV, F_FINV, domain, image)
   end
+
+  bijection(domain, image) = bijection(Dictionary, domain, image)
+
+  ## bijection(image) = Bijection(eachindex(image), image)
+
+  ## function bijection(domain_image)
+  ##   f = dictionary(domain_image)
+  ##   finv = Dictionary(f.values, f.indices)
+  ##   return Bijection(f, finv)
+  ## end
 
   apply(f::Bijection, x) = f.f[x]
   inv(f::Bijection) = Bijection(f.finv, f.f)
 
-  domain(f::Bijection) = f.finv.values
-  image(f::Bijection) = f.f.values
+  (f::Bijection)(x) = apply(f, x)
+
+  ## domain(f::Bijection) = f.finv.values
+  ## image(f::Bijection) = f.f.values
+
+  domain(f::Bijection) = keys(f.f)
+  image(f::Bijection) = keys(f.finv)
 
   function insert!(f::Bijection, x, y)
     insert!(f.f, x, y)
